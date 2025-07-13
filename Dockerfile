@@ -8,6 +8,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-ENTRYPOINT ["uvicorn"]
+# Exposición del puerto por convención (opcional para documentación)
+EXPOSE 80
 
-CMD ["main:app", "--host", "0.0.0.0"]
+# Comando de entrada
+ENTRYPOINT ["uvicorn"]
+CMD ["main:app", "--host", "0.0.0.0", "--port", "80"]
