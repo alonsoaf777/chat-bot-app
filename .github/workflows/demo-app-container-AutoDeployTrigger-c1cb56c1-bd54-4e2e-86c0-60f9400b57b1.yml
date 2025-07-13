@@ -8,7 +8,7 @@ on:
       [ main ]
     paths:
     - '**'
-    - '.github/workflows/demo-app-container-AutoDeployTrigger-c1cb56c1-bd54-4e2e-86c0-60f9400b57b1.yml'
+    - '.github/workflows/main.yml'
 
   # Allow manual trigger 
   workflow_dispatch:      
