@@ -77,7 +77,7 @@ def assistant(query, search_results):
     ]
 
     response = openai.ChatCompletion.create(
-        deployment_id=openai_completion_model,
+        engine=openai_completion_model,
         messages=messages,
     )
 
