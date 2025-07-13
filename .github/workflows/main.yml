@@ -39,7 +39,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           push: true
-          tags: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          tags: ghcr.io/${{ env.REPO }}:${{ github.sha }}
           file: ./Dockerfile
 
   deploy:
@@ -63,4 +63,4 @@ jobs:
             az containerapp registry set -n ${{ env.AZURE_CONTAINER_APP_NAME }} -g ${{ env.AZURE_GROUP_NAME }} --server ghcr.io --username  ${{ github.actor }} --password ${{ secrets.PAT }}
             az containerapp update -n ${{ env.AZURE_CONTAINER_APP_NAME }} -g ${{ env.AZURE_GROUP_NAME }} --set-env-vars OPENAI_API_TYPE=azure OPENAI_COMPLETION_API_ENDPOINT=https://demo-o-ai.openai.azure.com/ OPENAI_COMPLETION_API_KEY=${{ secrets.OPENAI_COMPLETION_API_KEY }} OPENAI_API_VERSION="2024-12-01-preview" OPENAI_COMPLETION_MODEL_NAME="gpt-4.1" OPENAI_SEARCH_SOURCE_ENDPOINT="https://demo-app.openai.azure.com/" OPENAI_SEARCH_SOURCE_KEY=${{ secrets.OPENAI_SEARCH_SOURCE_KEY }} OPENAI_SEARCH_SOURCE_VERSION="2023-05-15" OPENAI_SEARCH_API_ENDPOINT="https://demo-app-search.search.windows.net" OPENAI_SEARCH_API_KEY=${{ secrets.OPENAI_SEARCH_API_KEY }} OPENAI_SEARCH_INDEX_NAME="demo-index" OPENAI_SEARCH_MODEL_NAME="text-embedding-ada-002"
             az containerapp update -n demo-app-container -g demo-app --cpu 2 --memory 4Gi
-            az containerapp update -n ${{ env.AZURE_CONTAINER_APP_NAME }} -g ${{ env.AZURE_GROUP_NAME }} --image ghcr.io/${{ github.repository }}:${{ github.sha }}
+            az containerapp update -n ${{ env.AZURE_CONTAINER_APP_NAME }} -g ${{ env.AZURE_GROUP_NAME }} --image ghcr.io/${{ env.REPO }}:${{ github.sha }}
