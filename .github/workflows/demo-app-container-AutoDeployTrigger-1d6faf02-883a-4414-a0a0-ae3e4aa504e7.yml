@@ -1,49 +1,66 @@
 name: Trigger auto deployment for demo-app-container
 
+env:
+  AZURE_CONTAINER_APP_NAME: demo-app-container
+  AZURE_GROUP_NAME: demo-app
+
 # When this action will be executed
 on:
-  # Automatically trigger it when detected changes in repo
-  push:
-    branches: 
-      [ main ]
-    paths:
-    - '**'
-    - '.github/workflows/demo-app-container-AutoDeployTrigger-1d6faf02-883a-4414-a0a0-ae3e4aa504e7.yml'
+  # Automatically trigger it when detected changes in repo. Remove comments to enable
+  #push:
+  #  branches:
+  #    [ main ]
 
-  # Allow manual trigger 
-  workflow_dispatch:      
+  # Allow mannually trigger
+  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-    permissions: 
-      id-token: write #This is required for requesting the OIDC JWT Token
-      contents: read #Required when GH token is used to authenticate with private repo
 
     steps:
       - name: Checkout to the branch
         uses: actions/checkout@v2
 
-      - name: Azure Login
-        uses: azure/login@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Log in to GitHub container registry
+        uses: docker/login-action@v1.10.0
         with:
-          client-id: ${{ secrets.DEMOAPPCONTAINER_AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.DEMOAPPCONTAINER_AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.DEMOAPPCONTAINER_AZURE_SUBSCRIPTION_ID }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase the repo name and username
+        run: echo "REPO=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
 
       - name: Build and push container image to registry
-        uses: azure/container-apps-deploy-action@v2
+        uses: docker/build-push-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}
-          _dockerfilePathKey_: _dockerfilePath_
-          _targetLabelKey_: _targetLabel_
-          registryUrl: 
-          registryUsername: ${{ secrets.DEMOAPPCONTAINER_REGISTRY_USERNAME }}
-          registryPassword: ${{ secrets.DEMOAPPCONTAINER_REGISTRY_PASSWORD }}
-          containerAppName: demo-app-container
-          resourceGroup: demo-app
-          imageToBuild: default/[parameters('containerAppName')]:${{ github.sha }}
-          _buildArgumentsKey_: |
-            _buildArgumentsValues_
+          push: true
+          tags: ghcr.io/${{ env.REPO }}:${{ github.sha }}
+          file: ./Dockerfile
 
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
 
+    steps:
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Lowercase the repo name and username
+        run: echo "REPO=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
+
+      - name: Deploy to containerapp
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            az config set extension.use_dynamic_install=yes_without_prompt
+            az containerapp registry set -n ${{ env.AZURE_CONTAINER_APP_NAME }} -g ${{ env.AZURE_GROUP_NAME }} --server ghcr.io --username  ${{ github.actor }} --password ${{ secrets.PAT }}
+            az containerapp update -n ${{ env.AZURE_CONTAINER_APP_NAME }} -g ${{ env.AZURE_GROUP_NAME }} --set-env-vars OPENAI_API_TYPE=azure OPENAI_COMPLETION_API_ENDPOINT=https://demo-o-ai.openai.azure.com/ OPENAI_COMPLETION_API_KEY=${{ secrets.OPENAI_COMPLETION_API_KEY }} OPENAI_API_VERSION="2024-12-01-preview" OPENAI_COMPLETION_MODEL_NAME="gpt-4.1" OPENAI_SEARCH_SOURCE_ENDPOINT="https://demo-app.openai.azure.com/" OPENAI_SEARCH_SOURCE_KEY=${{ secrets.OPENAI_SEARCH_SOURCE_KEY }} OPENAI_SEARCH_SOURCE_VERSION="2023-05-15" OPENAI_SEARCH_API_ENDPOINT="https://demo-app-search.search.windows.net" OPENAI_SEARCH_API_KEY=${{ secrets.OPENAI_SEARCH_API_KEY }} OPENAI_SEARCH_INDEX_NAME="demo-index" OPENAI_SEARCH_MODEL_NAME="text-embedding-ada-002"
+            az containerapp update -n demo-app-container -g demo-app --cpu 2 --memory 4Gi
+            az containerapp update -n ${{ env.AZURE_CONTAINER_APP_NAME }} -g ${{ env.AZURE_GROUP_NAME }} --image ghcr.io/${{ env.REPO }}:${{ github.sha }}
