@@ -30,7 +30,7 @@ app = FastAPI()
 openai.api_base = openai_completion_endpoint
 openai.api_key = openai_completion_key
 openai.api_type = "azure"
-openai.api_version = openai_completion_version
+openai.api_version = "2024-12-01-preview" #openai_completion_version
 
 
 embeddings = OpenAIEmbeddings(
